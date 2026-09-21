@@ -223,7 +223,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
       <p>Choose your copy of “Join Us for a Bite”. It’s saved in this browser so it’s ready when your friend plays. It isn’t uploaded anywhere.</p>
       <div class="row">
         <label class="filepick"><input type="file" id="songIn" accept="audio/*"><span class="btn">Choose audio file</span></label>
-        <span class="songinfo" id="songInfo">No song saved yet</span>
+        <span class="songinfo" id="songInfo">Join Us for a Bite (default)</span>
         <button class="btn" id="prevBtn" type="button" hidden>Preview</button>
         <button class="btn" id="delSong" type="button" hidden>Remove</button>
       </div>
@@ -329,14 +329,33 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
   }
 
   /* ---------- audio ---------- */
-  const audio = new Audio(); audio.preload = 'auto';
-  let song = null, songUrl = null, actx = null, analyser = null, freq = new Uint8Array(512);
+  const audio = new Audio();
+  audio.preload = 'auto';
+
+  let song = {
+      name: 'Join Us for a Bite',
+      default: true
+  };
+
+  let songUrl = null;
+  let actx = null;
+  let analyser = null;
+  let freq = new Uint8Array(512);
+
+  audio.src = 'audio/default-song.mp3';
   const hasSong = () => !!song;
-  function setSong(name, blob){
-    if (songUrl) URL.revokeObjectURL(songUrl);
-    songUrl = URL.createObjectURL(blob);
-    audio.src = songUrl; song = { name };
-    updateSongUI();
+    function setSong(name, blob){
+      if (songUrl) URL.revokeObjectURL(songUrl);
+
+      songUrl = URL.createObjectURL(blob);
+      audio.src = songUrl;
+
+      song = {
+          name: name,
+          default: false
+      };
+
+      updateSongUI();
   }
   function updateSongUI(){
     $('#songInfo').textContent = song ? song.name : 'No song saved yet';
