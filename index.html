@@ -51,7 +51,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
 @keyframes flick{0%,91%,100%{opacity:1;transform:none}92%{opacity:.35}93%{opacity:1}95%{opacity:.6;transform:translateX(3px)}96%{opacity:1;transform:none}}
 
 /* ---------- calibration ---------- */
-#scrCal video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);filter:grayscale(.75) contrast(1.35) brightness(.8) sepia(.5) hue-rotate(70deg)}
+#scrCal video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;transform:scaleX(-1);filter:grayscale(.75) contrast(1.35) brightness(.8) sepia(.5) hue-rotate(70deg)}
 #scrCal .tint{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(0,0,0,0) 40%,rgba(20,0,4,.85) 100%);pointer-events:none}
 #scrCal .lines{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.25) 0 1px,transparent 1px 4px)}
 .scanbar{position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--blood),transparent);box-shadow:0 0 18px var(--blood);animation:scan 3.2s linear infinite;pointer-events:none}
@@ -208,6 +208,8 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
       <button class="btn" id="nudgeP" type="button" aria-label="Later by 50 milliseconds">+50 ms</button>
       <label>BPM <input type="number" id="bpm2" min="40" max="240" inputmode="numeric"></label>
     </span>
+    <button class="btn" id="sizeM" type="button" aria-label="Make the puppet smaller">Smaller</button>
+    <button class="btn" id="sizeP" type="button" aria-label="Make the puppet bigger">Bigger</button>
     <span class="spacer"></span>
     <button class="btn" id="fs" type="button">Full screen</button>
     <button class="btn" id="reset" type="button">Reset</button>
@@ -257,6 +259,9 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
         </select>
       </label>
       <div class="seg" id="segStatus" aria-live="polite"></div>
+      <label class="field" style="margin-top:14px">Puppet size (smaller shows more of the uwu world)
+        <input type="range" id="size" min="0.4" max="1.1" step="0.05">
+      </label>
     </div>
 
     <div class="box">
@@ -306,7 +311,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
 
   /* ---------- settings ---------- */
   const DEF = {
-    mode: 'auto', bpm: 120, every: 1, order: 'loop', startAt: 0, vol: 0.9, hold: 3, fs: true, cut: 'auto',
+    mode: 'auto', bpm: 120, every: 1, order: 'loop', startAt: 0, vol: 0.9, hold: 3, fs: true, cut: 'auto', size: 0.8,
     prompts: [
       'Palm open | Fingers spread, facing the camera',
       'Fist | Close your hand tight',
@@ -697,8 +702,8 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
       $('#calPrompt').textContent = prompts[i].t.toUpperCase();
       $('#calHint').textContent = prompts[i].h;
       ring.style.strokeDashoffset = String(CIRC);
-      buildDots(i); setStatus('ACQUIRING HAND…');
-      await wait(1400); if (my !== runId) return;
+      buildDots(i); setStatus(i === 0 ? 'STEP BACK · ARM’S LENGTH' : 'ACQUIRING HAND…');
+      await wait(i === 0 ? 2400 : 1400); if (my !== runId) return;
       if (i === glitchAt) {
         $('#scrCal').classList.add('glitching'); setStatus('SIGNAL LOST · RECALIBRATING');
         beep(90, 0.5, 0.08, 'sawtooth'); buzz([90, 50, 90]);
@@ -978,7 +983,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
     const P0 = poses[idx];
     const sh0 = P0.st.height, sw0 = P0.st.width, baseY = ch * 0.8;
     const titleH = insetTop + Math.min(74, ch * 0.11);
-    let S = Math.min(cw * 0.94 / sw0, ch * 0.62 / sh0);
+    let S = Math.min(cw * 0.94 / sw0, ch * 0.62 / sh0) * CFG.size;
     S = Math.min(S, (baseY - titleH) / (att.y + P0.pad));
     const heroCx = cw / 2;
 
@@ -1091,6 +1096,9 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
   $('#nudgeP').onclick = () => { offset -= 0.05; resync(); pokeUI(); };
   $('#bpm2').onchange = e => setBpm(+e.target.value);
   $('#fs').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); };
+  const setSize = v => { CFG.size = Math.min(1.1, Math.max(0.4, Math.round(v * 20) / 20)); save(); };
+  $('#sizeM').onclick = () => { setSize(CFG.size - 0.1); pokeUI(); };
+  $('#sizeP').onclick = () => { setSize(CFG.size + 0.1); pokeUI(); };
   $('#reset').onclick = () => location.reload();
   document.addEventListener('keydown', e => {
     if (!showActive || e.target.closest('input,select,textarea,button')) return;
@@ -1117,7 +1125,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
   function openSetup(){
     $('#prompts').value = CFG.prompts; $('#hold').value = CFG.hold; $('#chkFs').checked = CFG.fs;
     $('#startAt').value = CFG.startAt; $('#vol').value = CFG.vol; $('#bpm').value = CFG.bpm;
-    $('#every').value = String(CFG.every); $('#order').value = CFG.order; $('#cutMode').value = CFG.cut;
+    $('#every').value = String(CFG.every); $('#order').value = CFG.order; $('#cutMode').value = CFG.cut; $('#size').value = CFG.size;
     document.querySelectorAll('input[name=smode]').forEach(r => { r.checked = r.value === CFG.mode; });
     $('#bpmRow').classList.toggle('dim', CFG.mode === 'auto');
     updateSongUI();
@@ -1134,6 +1142,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
     save(); $('#setup').hidden = true;
   }
   $('#doneBtn').onclick = closeSetup;
+  $('#size').oninput = e => { CFG.size = +e.target.value; save(); };
   $('#cutMode').onchange = e => { CFG.cut = e.target.value; save(); if (CFG.cut === 'auto') loadSegmenter(); setSegStatus(); };
   $('#songIn').onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
