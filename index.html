@@ -265,6 +265,16 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
     </div>
 
     <div class="box">
+      <h3>Scary intro sounds</h3>
+      <p>Drone, heartbeat, scanner sweeps, whispers and a rising tension build during the fake setup. It’s all generated on the device, and it cuts to silence right before your song starts.</p>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="chkScary"> Play intro sounds</label>
+        <label class="field">Intro volume<input type="range" id="scaryVol" min="0.1" max="1" step="0.05"></label>
+        <button class="btn" id="introTest" type="button">Preview intro sounds</button>
+      </div>
+    </div>
+
+    <div class="box">
       <h3>Timing</h3>
       <p>“Follow the beat” listens to the bass. If it misses, use a fixed tempo and tap along in the preview.</p>
       <div class="radios" role="radiogroup" aria-label="Timing mode">
@@ -311,7 +321,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
 
   /* ---------- settings ---------- */
   const DEF = {
-    mode: 'auto', bpm: 120, every: 1, order: 'loop', startAt: 0, vol: 0.9, hold: 3, fs: true, cut: 'auto', size: 0.8,
+    mode: 'auto', bpm: 120, every: 1, order: 'loop', startAt: 0, vol: 0.9, hold: 3, fs: true, cut: 'auto', size: 0.8, scary: true, scaryVol: 0.8,
     prompts: [
       'Palm open | Fingers spread, facing the camera',
       'Fist | Close your hand tight',
@@ -419,23 +429,180 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
     gn.gain.setValueAtTime(v, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + d);
     o.connect(gn); gn.connect(actx.destination); o.start(t); o.stop(t + d + 0.02);
   }
-  let drone = null;
-  function startDrone(){
-    if (!actx || drone) return;
-    const gn = actx.createGain(), lp = actx.createBiquadFilter(), t = actx.currentTime;
-    lp.type = 'lowpass'; lp.frequency.value = 170;
-    gn.gain.setValueAtTime(0.0001, t); gn.gain.linearRampToValueAtTime(0.05, t + 2.5);
-    const o1 = actx.createOscillator(), o2 = actx.createOscillator();
-    o1.type = o2.type = 'sawtooth'; o1.frequency.value = 46; o2.frequency.value = 48.4;
-    o1.connect(lp); o2.connect(lp); lp.connect(gn); gn.connect(actx.destination);
-    o1.start(); o2.start(); drone = { o1, o2, gn };
-  }
-  function stopDrone(fade = 0.3){
-    if (!drone || !actx) return;
-    const t = actx.currentTime, d = drone; drone = null;
-    d.gn.gain.cancelScheduledValues(t); d.gn.gain.setValueAtTime(d.gn.gain.value, t); d.gn.gain.linearRampToValueAtTime(0.0001, t + fade);
-    setTimeout(() => { try { d.o1.stop(); d.o2.stop(); } catch (_) {} }, fade * 1000 + 50);
-  }
+  /* ---------- scary intro score: everything is synthesized, no audio files ---------- */
+  const scary = (() => {
+    let on = false, bus = null, send = null, phase = 'idle', hbPeriod = 1.4, chirpRate = 1;
+    let noiseBuf = null, lastWhisper = 0, scanTimer = 0;
+    const timers = new Set(), nodes = [];
+    const T = (fn, ms) => { const id = setTimeout(() => { timers.delete(id); if (on) fn(); }, ms); timers.add(id); return id; };
+    const noise = () => {
+      if (noiseBuf) return noiseBuf;
+      const len = actx.sampleRate * 2; noiseBuf = actx.createBuffer(1, len, actx.sampleRate);
+      const d = noiseBuf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      return noiseBuf;
+    };
+    const osc = (type, f) => { const o = actx.createOscillator(); o.type = type; o.frequency.value = f; nodes.push(o); return o; };
+    const out = (node, echo) => { node.connect(bus); if (echo) node.connect(send); };
+    const pan = (node, v) => {
+      if (!actx.createStereoPanner) return node;
+      const p = actx.createStereoPanner(); p.pan.value = v; node.connect(p); return p;
+    };
+
+    function start(){
+      if (on || !actx || !CFG.scary) return;
+      on = true; phase = 'idle'; hbPeriod = 1.4; chirpRate = 1;
+      const t = actx.currentTime;
+      bus = actx.createGain(); bus.gain.setValueAtTime(0.0001, t); bus.gain.linearRampToValueAtTime(CFG.scaryVol, t + 1.5); bus.connect(actx.destination);
+      // echo chamber
+      send = actx.createGain();
+      const dly = actx.createDelay(1), fb = actx.createGain(), lp = actx.createBiquadFilter();
+      dly.delayTime.value = 0.38; fb.gain.value = 0.42; lp.type = 'lowpass'; lp.frequency.value = 2200;
+      send.connect(dly); dly.connect(lp); lp.connect(fb); fb.connect(dly); lp.connect(bus);
+      // low drone with a slowly breathing filter, plus a sub
+      const dg = actx.createGain(), dlp = actx.createBiquadFilter();
+      dlp.type = 'lowpass'; dlp.frequency.value = 190; dg.gain.setValueAtTime(0.0001, t); dg.gain.linearRampToValueAtTime(0.11, t + 3);
+      const d1 = osc('sawtooth', 46), d2 = osc('sawtooth', 48.4), sub = osc('sine', 34);
+      const lfo = osc('sine', 0.08), lfoG = actx.createGain(); lfoG.gain.value = 70; lfo.connect(lfoG); lfoG.connect(dlp.frequency);
+      d1.connect(dlp); d2.connect(dlp); dlp.connect(dg); sub.connect(dg); dg.connect(bus);
+      [d1, d2, sub, lfo].forEach(o => o.start(t));
+      // dissonant pad (A, B-flat, E, F) that never resolves
+      const padLp = actx.createBiquadFilter(); padLp.type = 'lowpass'; padLp.frequency.value = 900;
+      const pg = actx.createGain(); pg.gain.setValueAtTime(0.0001, t); pg.gain.linearRampToValueAtTime(1, t + 5); padLp.connect(pg); pg.connect(bus);
+      [110, 116.54, 164.81, 174.61].forEach((f, i) => {
+        const o = osc('triangle', f), g2 = actx.createGain(), l = osc('sine', 0.05 + i * 0.037), lg = actx.createGain();
+        g2.gain.value = 0.02; lg.gain.value = 0.016; l.connect(lg); lg.connect(g2.gain); o.connect(g2); g2.connect(padLp);
+        o.detune.value = (i % 2 ? 9 : -7); o.start(t); l.start(t);
+      });
+      T(beat, 1200); T(rand, 2500);
+    }
+
+    // heartbeat: a low thump plus a soft click so small phone speakers can hear it too
+    function thump(t, v){
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(52, t + 0.18);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.42 * v, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+      o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.32);
+      const n = actx.createBufferSource(), nf = actx.createBiquadFilter(), ng = actx.createGain();
+      n.buffer = noise(); nf.type = 'lowpass'; nf.frequency.value = 420;
+      ng.gain.setValueAtTime(0.0001, t); ng.gain.linearRampToValueAtTime(0.16 * v, t + 0.008); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+      n.connect(nf); nf.connect(ng); ng.connect(bus); n.start(t, Math.random()); n.stop(t + 0.12);
+    }
+    function beat(){ const t = actx.currentTime; thump(t, 1); thump(t + 0.27, 0.65); T(beat, hbPeriod * 1000); }
+
+    function ping(t, f = 1320){
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.16, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+      o.connect(g); out(g, true); o.start(t); o.stop(t + 0.6);
+    }
+    // one pass of the scanner line (the red bar takes 3.2 seconds to cross the screen)
+    function sweep(){
+      if (phase !== 'cal') return;
+      const t = actx.currentTime, d = 3.2;
+      const n = actx.createBufferSource(), bp = actx.createBiquadFilter(), g = actx.createGain();
+      n.buffer = noise(); n.loop = true; bp.type = 'bandpass'; bp.Q.value = 6;
+      bp.frequency.setValueAtTime(250, t); bp.frequency.exponentialRampToValueAtTime(3200, t + d);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.11, t + 0.4); g.gain.linearRampToValueAtTime(0.06, t + d * 0.8); g.gain.linearRampToValueAtTime(0.0001, t + d);
+      n.connect(bp); bp.connect(g); out(g, true); n.start(t); n.stop(t + d + 0.1);
+      const o = actx.createOscillator(), og = actx.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(1760, t + d);
+      og.gain.setValueAtTime(0.0001, t); og.gain.linearRampToValueAtTime(0.04, t + 0.3); og.gain.linearRampToValueAtTime(0.0001, t + d);
+      o.connect(og); out(og, false); o.start(t); o.stop(t + d + 0.05);
+      ping(t + d - 0.05, 990 + Math.random() * 700);
+      scanTimer = T(sweep, d * 1000);
+    }
+
+    // random creepy events: data chirps, a breathy whisper, a distant clang, a metal scrape
+    function chirps(){
+      const t = actx.currentTime, k = 2 + ((Math.random() * 3) | 0);
+      for (let i = 0; i < k; i++) {
+        const o = actx.createOscillator(), g = actx.createGain(), tt = t + i * 0.07;
+        o.type = 'sine'; o.frequency.value = 1800 + Math.random() * 2600;
+        g.gain.setValueAtTime(0.0001, tt); g.gain.linearRampToValueAtTime(0.04, tt + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, tt + 0.03);
+        o.connect(g); out(pan(g, Math.random() * 1.4 - 0.7), false);
+        o.start(tt); o.stop(tt + 0.05);
+      }
+    }
+    function whisper(){
+      const t = actx.currentTime, n = actx.createBufferSource(), g = actx.createGain();
+      n.buffer = noise(); n.loop = true;
+      const f1 = actx.createBiquadFilter(), f2 = actx.createBiquadFilter();
+      f1.type = f2.type = 'bandpass'; f1.Q.value = 3; f2.Q.value = 4;
+      f1.frequency.setValueAtTime(900, t); f1.frequency.linearRampToValueAtTime(1500, t + 2.2);
+      f2.frequency.setValueAtTime(2300, t); f2.frequency.linearRampToValueAtTime(1900, t + 2.2);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.09, t + 1); g.gain.linearRampToValueAtTime(0.0001, t + 2.3);
+      n.connect(f1); n.connect(f2); f1.connect(g); f2.connect(g);
+      const p = pan(g, Math.random() > 0.5 ? 0.8 : -0.8); p.connect(bus); p.connect(send);
+      n.start(t); n.stop(t + 2.5);
+    }
+    function clang(){
+      const t = actx.currentTime;
+      [[180, 1], [431, 0.6], [702, 0.35]].forEach(([f, v]) => {
+        const o = actx.createOscillator(), g = actx.createGain();
+        o.type = 'sine'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.08 * v, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+        o.connect(g); out(g, true); o.start(t); o.stop(t + 1.5);
+      });
+    }
+    function scrape(){
+      const t = actx.currentTime, n = actx.createBufferSource(), bp = actx.createBiquadFilter(), g = actx.createGain();
+      n.buffer = noise(); bp.type = 'bandpass'; bp.Q.value = 12;
+      bp.frequency.setValueAtTime(2600, t); bp.frequency.exponentialRampToValueAtTime(500, t + 0.8);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.09, t + 0.1); g.gain.linearRampToValueAtTime(0.0001, t + 0.85);
+      n.connect(bp); bp.connect(g); out(g, true); n.start(t, Math.random()); n.stop(t + 0.9);
+    }
+    function rand(){
+      const r = Math.random(), now = performance.now();
+      if (r < 0.55) chirps();
+      else if (r < 0.7 && now - lastWhisper > 9000) { lastWhisper = now; whisper(); }
+      else if (r < 0.82) clang();
+      else if (r < 0.95) scrape();
+      else chirps();
+      T(rand, (700 + Math.random() * 1600) / chirpRate);
+    }
+
+    // a sudden dissonant hit: used at the glitch and when the "presence" shows up
+    function stinger(){
+      if (!on) return;
+      const t = actx.currentTime, lp = actx.createBiquadFilter(), g = actx.createGain();
+      lp.type = 'lowpass'; lp.frequency.setValueAtTime(3200, t); lp.frequency.exponentialRampToValueAtTime(220, t + 1);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.26, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+      lp.connect(g); out(g, true);
+      [138.59, 146.83, 207.65, 293.66].forEach(f => { const o = actx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(lp); o.start(t); o.stop(t + 1.2); });
+      const n = actx.createBufferSource(), ng = actx.createGain(), hp = actx.createBiquadFilter();
+      hp.type = 'highpass'; hp.frequency.value = 1500; n.buffer = noise();
+      ng.gain.setValueAtTime(0.0001, t); ng.gain.linearRampToValueAtTime(0.14, t + 0.005); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      n.connect(hp); hp.connect(ng); out(ng, true); n.start(t, Math.random()); n.stop(t + 0.4);
+    }
+    // tension riser while the "puppet" is being built
+    function riser(){
+      const t = actx.currentTime, d = 11;
+      const n = actx.createBufferSource(), hp = actx.createBiquadFilter(), g = actx.createGain();
+      n.buffer = noise(); n.loop = true; hp.type = 'highpass';
+      hp.frequency.setValueAtTime(300, t); hp.frequency.exponentialRampToValueAtTime(7000, t + d);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.13, t + d);
+      n.connect(hp); hp.connect(g); out(g, false); n.start(t); n.stop(t + d + 0.2);
+      const o = actx.createOscillator(), lp = actx.createBiquadFilter(), og = actx.createGain();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(60, t); o.frequency.exponentialRampToValueAtTime(520, t + d);
+      lp.type = 'lowpass'; lp.frequency.value = 900; og.gain.setValueAtTime(0.0001, t); og.gain.linearRampToValueAtTime(0.07, t + d);
+      o.connect(lp); lp.connect(og); out(og, false); o.start(t); o.stop(t + d + 0.2);
+    }
+
+    function setPhase(p){
+      if (!on) return;
+      phase = p; clearTimeout(scanTimer);
+      if (p === 'cal') { hbPeriod = 1.15; chirpRate = 1.2; sweep(); }
+      if (p === 'proc') { hbPeriod = 0.62; chirpRate = 2.4; riser(); }
+    }
+    function stop(fade = 0.08){
+      if (!on) return;
+      on = false; timers.forEach(clearTimeout); timers.clear();
+      const t = actx.currentTime, b = bus, list = nodes.splice(0);
+      try { b.gain.cancelScheduledValues(t); b.gain.setValueAtTime(Math.max(0.0001, b.gain.value), t); b.gain.linearRampToValueAtTime(0.0001, t + fade); } catch (_) {}
+      setTimeout(() => { list.forEach(o => { try { o.stop(); } catch (_) {} }); try { b.disconnect(); } catch (_) {} }, fade * 1000 + 100);
+    }
+    function setVol(v){ if (on && bus) { const t = actx.currentTime; bus.gain.cancelScheduledValues(t); bus.gain.setValueAtTime(Math.max(0.0001, bus.gain.value), t); bus.gain.linearRampToValueAtTime(Math.max(0.0001, v), t + 0.1); } }
+    return { start, stop, stinger, phase: setPhase, setVol, isOn: () => on };
+  })();
 
   /* keep the phone awake while the prank runs */
   let wl = null;
@@ -480,7 +647,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
     if (!hasSong()) { toast('No song is saved yet. Tap the logo 5 times to open setup.'); return; }
     ensureAudio();
     if (actx && actx.state === 'suspended') actx.resume();
-    startDrone(); keepAwake();
+    scary.start(); keepAwake();
     if (CFG.cut === 'auto') loadSegmenter();
     if (CFG.fs && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
     runCalibration();
@@ -691,7 +858,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
   }
   async function runCalibration(){
     const my = ++runId;
-    showScr('cal'); $('#camerr').hidden = true;
+    showScr('cal'); $('#camerr').hidden = true; scary.phase('cal');
     const ok = await startCam();
     if (my !== runId) return;
     if (!ok) { $('#camerr').hidden = false; return; }
@@ -706,7 +873,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
       await wait(i === 0 ? 2400 : 1400); if (my !== runId) return;
       if (i === glitchAt) {
         $('#scrCal').classList.add('glitching'); setStatus('SIGNAL LOST · RECALIBRATING');
-        beep(90, 0.5, 0.08, 'sawtooth'); buzz([90, 50, 90]);
+        beep(90, 0.5, 0.08, 'sawtooth'); scary.stinger(); buzz([90, 50, 90]);
         await wait(1700); if (my !== runId) return;
         $('#scrCal').classList.remove('glitching'); setStatus('ACQUIRING HAND…');
         await wait(900); if (my !== runId) return;
@@ -725,7 +892,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
   /* ---------- processing (the puppet is really being built here) ---------- */
   let built = null;
   async function processing(my){
-    stopCam(); showScr('proc');
+    stopCam(); showScr('proc'); scary.phase('proc');
     const term = $('#term'), bar = $('#progBar'), pct = $('#pct');
     term.innerHTML = ''; $('#enter').hidden = true; bar.style.width = '0'; pct.textContent = '0%';
     $('#thumbs').innerHTML = '';
@@ -753,7 +920,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
       term.appendChild(d);
       const p = Math.round((i + 1) / L.length * 99);
       bar.style.width = p + '%'; pct.textContent = p + '%';
-      if (L[i][2] === 'bad') { beep(70, 0.6, 0.09, 'sawtooth'); buzz(120); }
+      if (L[i][2] === 'bad') { scary.stinger(); buzz(120); }
     }
     try { built = await puppetJob; } catch (_) { built = null; }
     if (my !== runId) return;
@@ -765,7 +932,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
     audio.muted = true;
     audio.play().then(() => { audio.pause(); audio.muted = false; }).catch(() => { audio.muted = false; });
     if (actx && actx.state === 'suspended') actx.resume();
-    stopDrone(0.1); keepAwake();
+    scary.stop(0.06); keepAwake();
     runId++;
     if (!built || built.length < 2) { toast('Something went wrong building the puppet. Reload and try again.'); return; }
     poses = built.slice();
@@ -1125,7 +1292,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
   function openSetup(){
     $('#prompts').value = CFG.prompts; $('#hold').value = CFG.hold; $('#chkFs').checked = CFG.fs;
     $('#startAt').value = CFG.startAt; $('#vol').value = CFG.vol; $('#bpm').value = CFG.bpm;
-    $('#every').value = String(CFG.every); $('#order').value = CFG.order; $('#cutMode').value = CFG.cut; $('#size').value = CFG.size;
+    $('#every').value = String(CFG.every); $('#order').value = CFG.order; $('#cutMode').value = CFG.cut; $('#size').value = CFG.size; $('#chkScary').checked = CFG.scary; $('#scaryVol').value = CFG.scaryVol;
     document.querySelectorAll('input[name=smode]').forEach(r => { r.checked = r.value === CFG.mode; });
     $('#bpmRow').classList.toggle('dim', CFG.mode === 'auto');
     updateSongUI();
@@ -1134,7 +1301,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
     $('#setup').hidden = false; $('#setup').scrollTop = 0;
   }
   function closeSetup(){
-    audio.pause(); audio.loop = false;
+    stopIntroPreview(); audio.pause(); audio.loop = false;
     CFG.prompts = $('#prompts').value.trim() ? $('#prompts').value : DEF.prompts;
     CFG.hold = Math.min(6, Math.max(1, parseFloat($('#hold').value) || 3));
     CFG.fs = $('#chkFs').checked;
@@ -1142,6 +1309,17 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
     save(); $('#setup').hidden = true;
   }
   $('#doneBtn').onclick = closeSetup;
+  let introT = [];
+  function stopIntroPreview(){ introT.forEach(clearTimeout); introT = []; scary.stop(0.2); const b = $('#introTest'); if (b) b.textContent = 'Preview intro sounds'; }
+  $('#chkScary').onchange = e => { CFG.scary = e.target.checked; save(); if (!CFG.scary) stopIntroPreview(); };
+  $('#scaryVol').oninput = e => { CFG.scaryVol = +e.target.value; save(); scary.setVol(CFG.scaryVol); };
+  $('#introTest').onclick = () => {
+    if (scary.isOn()) { stopIntroPreview(); return; }
+    if (!CFG.scary) { toast('Turn on “Play intro sounds” first.'); return; }
+    ensureAudio(); if (actx && actx.state === 'suspended') actx.resume();
+    scary.start(); scary.phase('cal'); $('#introTest').textContent = 'Stop preview';
+    introT = [setTimeout(() => scary.phase('proc'), 7000), setTimeout(() => scary.stinger(), 13000), setTimeout(stopIntroPreview, 16500)];
+  };
   $('#size').oninput = e => { CFG.size = +e.target.value; save(); };
   $('#cutMode').onchange = e => { CFG.cut = e.target.value; save(); if (CFG.cut === 'auto') loadSegmenter(); setSegStatus(); };
   $('#songIn').onchange = async e => {
