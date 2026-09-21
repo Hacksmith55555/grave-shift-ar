@@ -1,0 +1,989 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GRAVE SHIFT AR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Share+Tech+Mono&family=Special+Elite&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:dark;
+  --void:#08040a; --panel:#1a0d12; --line:#3a2029; --ink:#ecdcc0; --muted:#a8939a;
+  --blood:#e0223a; --amber:#ffb52e; --cyan:#26d0ce; --ink-on-amber:#2a1400;
+  --hud:"Share Tech Mono",ui-monospace,Menlo,Consolas,monospace;
+  --type:"Special Elite","Courier New",monospace;
+  --ui:"DM Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden}
+body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap-highlight-color:transparent}
+[hidden]{display:none !important}
+:focus-visible{outline:3px solid var(--cyan);outline-offset:3px}
+
+.scr{position:fixed;top:0;bottom:0;left:0;right:0;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);overflow:hidden;background:var(--void)}
+.center{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:18px;padding:24px}
+
+/* ---------- title ---------- */
+#scrTitle{background:radial-gradient(ellipse at 50% 35%,#2b0d16 0%,#0c0508 60%,#050203 100%)}
+#scrTitle::after,#scrProc::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 1px,transparent 1px 4px);mix-blend-mode:multiply}
+.logo{all:unset;cursor:default;font-family:var(--type);font-size:clamp(46px,12vw,110px);line-height:.92;color:var(--ink);text-shadow:3px 0 var(--blood),-3px 0 var(--cyan);animation:flick 6s infinite;user-select:none;-webkit-user-select:none}
+.logo small{display:block;font-size:.42em;letter-spacing:.4em;margin-top:.3em;color:var(--blood);text-shadow:none}
+.sub{font-family:var(--hud);color:var(--muted);font-size:14px;letter-spacing:.06em;margin:0}
+.checks{list-style:none;margin:6px 0 0;padding:0;font-family:var(--hud);font-size:15px;display:grid;gap:6px;text-align:left;min-width:min(300px,80vw)}
+.checks li{display:flex;justify-content:space-between;gap:24px;color:var(--muted)}
+.checks li span{color:var(--amber)}
+.checks li.ok span{color:#5be08a}
+.btn{font:700 17px var(--hud);letter-spacing:.08em;background:transparent;color:var(--ink);border:2px solid var(--blood);padding:14px 26px;cursor:pointer;border-radius:4px}
+.btn:hover:not(:disabled){background:var(--blood);color:#fff}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn.solid{background:var(--blood);color:#fff}
+.btn.amber{background:var(--amber);border-color:var(--amber);color:var(--ink-on-amber)}
+.fine{font-family:var(--hud);font-size:12px;color:var(--muted);max-width:52ch;margin:8px 0 0}
+@keyframes flick{0%,91%,100%{opacity:1;transform:none}92%{opacity:.35}93%{opacity:1}95%{opacity:.6;transform:translateX(3px)}96%{opacity:1;transform:none}}
+
+/* ---------- calibration ---------- */
+#scrCal video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);filter:grayscale(.75) contrast(1.35) brightness(.8) sepia(.5) hue-rotate(70deg)}
+#scrCal .tint{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(0,0,0,0) 40%,rgba(20,0,4,.85) 100%);pointer-events:none}
+#scrCal .lines{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.25) 0 1px,transparent 1px 4px)}
+.scanbar{position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--blood),transparent);box-shadow:0 0 18px var(--blood);animation:scan 3.2s linear infinite;pointer-events:none}
+@keyframes scan{from{top:-2%}to{top:102%}}
+.corners i{position:absolute;width:44px;height:44px;border:0 solid var(--blood);pointer-events:none}
+.corners i:nth-child(1){top:calc(env(safe-area-inset-top,0px) + 18px);left:18px;border-top-width:3px;border-left-width:3px}
+.corners i:nth-child(2){top:calc(env(safe-area-inset-top,0px) + 18px);right:18px;border-top-width:3px;border-right-width:3px}
+.corners i:nth-child(3){bottom:calc(env(safe-area-inset-bottom,0px) + 18px);left:18px;border-bottom-width:3px;border-left-width:3px}
+.corners i:nth-child(4){bottom:calc(env(safe-area-inset-bottom,0px) + 18px);right:18px;border-bottom-width:3px;border-right-width:3px}
+.hudtop{position:absolute;top:calc(env(safe-area-inset-top,0px) + 26px);left:0;right:0;text-align:center;padding:0 70px}
+.hudtop .count{font:14px var(--hud);letter-spacing:.2em;color:var(--blood)}
+.hudtop .prompt{font:clamp(28px,6vw,54px)/1.05 var(--type);color:var(--ink);margin:6px 0 4px;text-shadow:0 2px 12px #000}
+.hudtop .hint{font:15px var(--hud);color:var(--ink);opacity:.85;text-shadow:0 2px 8px #000}
+.ringwrap{position:absolute;left:50%;top:52%;width:min(58vh,80vw);aspect-ratio:1;transform:translate(-50%,-50%);pointer-events:none}
+.ringwrap svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ringwrap circle{fill:none;stroke-width:3}
+.ringwrap .bg{stroke:rgba(255,255,255,.22);stroke-dasharray:2 6}
+.ringwrap .fg{stroke:var(--blood);stroke-linecap:round;filter:drop-shadow(0 0 6px var(--blood))}
+.hudbot{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);left:0;right:0;text-align:center}
+.status{font:700 20px var(--hud);letter-spacing:.2em;color:var(--amber);text-shadow:0 2px 10px #000;min-height:1.5em}
+.dots{display:flex;gap:10px;justify-content:center;margin-top:12px}
+.dots span{width:12px;height:12px;border:2px solid var(--ink);border-radius:50%;opacity:.7}
+.dots span.cur{border-color:var(--blood);opacity:1;box-shadow:0 0 8px var(--blood)}
+.dots span.done{background:var(--blood);border-color:var(--blood);opacity:1}
+.tele{position:absolute;left:30px;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);font:12px/1.5 var(--hud);color:var(--cyan);white-space:pre;opacity:.85;text-shadow:0 0 6px #000}
+.camflash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .45s}
+.camflash.on{opacity:.9;transition:none}
+#scrCal.glitching video{animation:jit .18s steps(2) infinite;filter:grayscale(1) contrast(2) brightness(1.1)}
+#scrCal.glitching .status{color:var(--blood)}
+#scrCal.glitching .hudtop .prompt{animation:jit .18s steps(2) infinite}
+@keyframes jit{0%{transform:scaleX(-1) translate(0,0)}50%{transform:scaleX(-1) translate(8px,-3px)}100%{transform:scaleX(-1) translate(-6px,2px)}}
+#scrCal.glitching .hudtop .prompt{animation-name:jit2}
+@keyframes jit2{0%{transform:translate(0,0)}50%{transform:translate(8px,-3px)}100%{transform:translate(-6px,2px)}}
+.camerr{position:absolute;inset:0;background:rgba(5,2,4,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px}
+.camerr p{max-width:46ch;margin:0;font:15px/1.5 var(--hud)}
+
+/* ---------- processing ---------- */
+#scrProc{background:#050203;justify-content:center}
+.term{font:15px/1.7 var(--hud);width:min(640px,90vw);text-align:left;min-height:220px}
+.term .ln{opacity:.95}
+.term .ln b{color:#5be08a;font-weight:400}
+.term .ln.warn b{color:var(--amber)}
+.term .ln.bad b{color:var(--blood)}
+.term .ln.bad{animation:flick 1.2s 2}
+.prog{width:min(640px,90vw);height:14px;border:2px solid var(--line);border-radius:2px;overflow:hidden}
+.prog div{height:100%;width:0;background:var(--blood);transition:width .8s ease-out}
+.pct{font:14px var(--hud);color:var(--muted);width:min(640px,90vw);text-align:right;margin-top:-8px}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;width:min(640px,90vw)}
+.thumbs canvas{width:78px;height:44px;border:1px solid var(--blood);filter:grayscale(1) contrast(1.4) brightness(.8) sepia(1) hue-rotate(-30deg) saturate(3);opacity:.85}
+.enter{animation:pulse 1.4s infinite}
+@keyframes pulse{50%{box-shadow:0 0 28px var(--blood)}}
+
+/* ---------- black + show ---------- */
+#scrBlack{background:#000}
+#scrShow{background:#000}
+#scrShow canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;cursor:pointer}
+.ui{position:absolute;left:0;right:0;bottom:0;padding:14px 16px calc(env(safe-area-inset-bottom,0px) + 14px);display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:linear-gradient(0deg,rgba(0,0,0,.85),rgba(0,0,0,0));opacity:0;pointer-events:none;transition:opacity .25s}
+.ui.on{opacity:1;pointer-events:auto}
+.ui .btn{font-size:13px;padding:8px 12px;border-color:var(--line)}
+.ui .btn.solid{border-color:var(--blood)}
+.ui label{font:13px var(--hud);color:var(--ink);display:inline-flex;align-items:center;gap:6px}
+.ui input{width:70px;font:14px var(--hud);background:#000;color:var(--ink);border:1px solid var(--line);padding:4px 6px}
+.spacer{flex:1}
+
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);transform:translateX(-50%);background:var(--panel);border:2px solid var(--blood);color:var(--ink);padding:12px 18px;font:14px var(--hud);max-width:90vw;text-align:center;z-index:50}
+
+/* ---------- prankster setup ---------- */
+#setup{position:fixed;inset:0;z-index:40;background:rgba(5,2,4,.96);overflow-y:auto;padding:calc(env(safe-area-inset-top,0px) + 20px) 20px calc(env(safe-area-inset-bottom,0px) + 30px)}
+#setup .sheet{max-width:640px;margin:0 auto;font-family:var(--ui)}
+#setup h2{font:400 clamp(26px,5vw,34px) var(--type);margin:0 0 4px}
+#setup .lede{color:var(--muted);margin:0 0 20px}
+#setup .box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:16px}
+#setup h3{margin:0 0 4px;font-size:17px}
+#setup p{margin:0 0 12px;color:var(--muted);font-size:14px}
+#setup .row{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center}
+#setup .field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+#setup input[type=number],#setup select,#setup textarea{font:inherit;font-size:16px;background:#0d0609;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+#setup select,#setup input[type=number]{min-width:130px}
+#setup textarea{width:100%;min-height:150px;font-family:var(--hud);font-size:14px;line-height:1.6}
+#setup .btn{font:700 14px var(--ui);letter-spacing:0;padding:10px 16px;border-radius:8px;border-width:2px}
+#setup .filepick{display:inline-flex}
+#setup .filepick input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+#setup .filepick:focus-within .btn{outline:3px solid var(--cyan);outline-offset:3px}
+#setup .radios{display:flex;gap:10px;flex-wrap:wrap}
+#setup .radios label{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--line);padding:9px 14px;border-radius:10px;cursor:pointer;color:var(--ink);font-size:15px}
+#setup .chk{display:inline-flex;gap:8px;align-items:center;color:var(--ink);font-size:15px;cursor:pointer}
+#setup .songinfo{font-weight:700;overflow-wrap:anywhere;color:var(--ink)}
+#setup .dim{opacity:.45}
+
+@media (prefers-reduced-motion: reduce){
+  .logo,.scanbar,.enter,.term .ln.bad,#scrCal.glitching video,#scrCal.glitching .hudtop .prompt{animation:none}
+  .camflash,.ui{transition:none}
+}
+</style>
+</head>
+<body>
+
+<!-- 1. Title -->
+<section class="scr center" id="scrTitle">
+  <button class="logo" id="logo" type="button" aria-label="Grave Shift AR">GRAVE<br>SHIFT<small>AR TRAINING</small></button>
+  <p class="sub">Night Shift Simulator · Beta 0.9</p>
+  <ul class="checks" aria-live="polite">
+    <li id="ck1"><em style="font-style:normal">Camera link</em><span>connecting…</span></li>
+    <li id="ck2"><em style="font-style:normal">Hand tracking</em><span>connecting…</span></li>
+    <li id="ck3"><em style="font-style:normal">Room scan</em><span>connecting…</span></li>
+  </ul>
+  <button class="btn" id="begin" type="button" disabled>BEGIN CALIBRATION</button>
+  <p class="fine">Best played in a dim room. Contains flashing lights. Runs on this device only; nothing is uploaded.</p>
+</section>
+
+<!-- 2. Calibration -->
+<section class="scr" id="scrCal" hidden>
+  <video id="video" playsinline muted></video>
+  <div class="tint"></div><div class="lines"></div><div class="scanbar"></div>
+  <div class="corners"><i></i><i></i><i></i><i></i></div>
+  <div class="hudtop">
+    <div class="count" id="calCount"></div>
+    <div class="prompt" id="calPrompt"></div>
+    <div class="hint" id="calHint"></div>
+  </div>
+  <div class="ringwrap"><svg viewBox="0 0 160 160" aria-hidden="true"><circle class="bg" cx="80" cy="80" r="70"/><circle class="fg" id="ring" cx="80" cy="80" r="70"/></svg></div>
+  <div class="tele" id="tele" aria-hidden="true"></div>
+  <div class="hudbot"><div class="status" id="calStatus" aria-live="polite"></div><div class="dots" id="dots"></div></div>
+  <div class="camflash" id="camflash"></div>
+  <div class="camerr" id="camerr" hidden>
+    <p id="camerrText" role="alert"></p>
+    <button class="btn solid" id="retryCam" type="button">RETRY CAMERA</button>
+  </div>
+</section>
+
+<!-- 3. Processing -->
+<section class="scr center" id="scrProc" hidden>
+  <div class="thumbs" id="thumbs" aria-hidden="true"></div>
+  <div class="term" id="term" aria-live="polite"></div>
+  <div class="prog" aria-hidden="true"><div id="progBar"></div></div>
+  <div class="pct" id="pct">0%</div>
+  <button class="btn solid enter" id="enter" type="button" hidden>ENTER SIMULATION</button>
+</section>
+
+<!-- 4. Black -->
+<section class="scr" id="scrBlack" hidden></section>
+
+<!-- 5. Show -->
+<section class="scr" id="scrShow" hidden>
+  <canvas id="stage" width="1280" height="720" aria-label="Your hand poses, puppeted to the music"></canvas>
+  <div class="ui" id="ui">
+    <button class="btn" id="pp" type="button">Pause</button>
+    <button class="btn" id="restart" type="button">Restart</button>
+    <button class="btn" id="modeBtn" type="button">Mode</button>
+    <span id="syncGrp" style="display:inline-flex;gap:8px;align-items:center" hidden>
+      <button class="btn" id="sync" type="button">Beat 1 is now</button>
+      <button class="btn" id="nudgeM" type="button" aria-label="Earlier by 50 milliseconds">-50 ms</button>
+      <button class="btn" id="nudgeP" type="button" aria-label="Later by 50 milliseconds">+50 ms</button>
+      <label>BPM <input type="number" id="bpm2" min="40" max="240"></label>
+    </span>
+    <span class="spacer"></span>
+    <button class="btn" id="fs" type="button">Full screen</button>
+    <button class="btn solid" id="reset" type="button">Reset prank</button>
+  </div>
+</section>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<!-- Prankster setup (tap the logo 5 times) -->
+<div id="setup" hidden role="dialog" aria-modal="true" aria-labelledby="setupTitle">
+  <div class="sheet">
+    <h2 id="setupTitle">Prank setup</h2>
+    <p class="lede">Only you should see this. Your friend never needs to open it.</p>
+
+    <div class="box">
+      <h3>Song</h3>
+      <p>Choose your copy of “Join Us for a Bite”. It’s saved in this browser so it’s ready when your friend plays. It isn’t uploaded anywhere.</p>
+      <div class="row">
+        <label class="filepick"><input type="file" id="songIn" accept="audio/*"><span class="btn">Choose audio file</span></label>
+        <span class="songinfo" id="songInfo">No song saved yet</span>
+        <button class="btn" id="prevBtn" type="button" hidden>Preview</button>
+        <button class="btn" id="delSong" type="button" hidden>Remove</button>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <label class="field">Song starts at (seconds)<input type="number" id="startAt" min="0" step="0.5"></label>
+        <label class="field">Volume<input type="range" id="vol" min="0" max="1" step="0.01"></label>
+      </div>
+    </div>
+
+    <div class="box">
+      <h3>Calibration poses</h3>
+      <p>One line per pose your friend is asked to make. Write the hand sign you want, then a hint after a “|”. The puppet show flips through these poses in this order.</p>
+      <textarea id="prompts" spellcheck="false" aria-label="Calibration poses, one per line"></textarea>
+      <div class="row" style="margin-top:12px">
+        <label class="field">Hold time per pose (seconds)<input type="number" id="hold" min="1" max="6" step="0.5"></label>
+        <label class="chk"><input type="checkbox" id="chkFs"> Go full screen when they start</label>
+      </div>
+    </div>
+
+    <div class="box">
+      <h3>Timing</h3>
+      <p>“Follow the beat” listens to the bass. If it misses, use a fixed tempo and tap along in the preview.</p>
+      <div class="radios" role="radiogroup" aria-label="Timing mode">
+        <label><input type="radio" name="smode" value="auto"> Follow the beat</label>
+        <label><input type="radio" name="smode" value="bpm"> Fixed tempo</label>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <div class="row" id="bpmRow">
+          <label class="field">Tempo (BPM)<input type="number" id="bpm" min="40" max="240"></label>
+          <button class="btn" id="tap" type="button">Tap tempo</button>
+        </div>
+        <label class="field">Change pose
+          <select id="every">
+            <option value="0.5">Twice per beat</option>
+            <option value="1">Every beat</option>
+            <option value="2">Every 2 beats</option>
+            <option value="4">Every 4 beats</option>
+          </select>
+        </label>
+        <label class="field">Order
+          <select id="order">
+            <option value="loop">Loop</option>
+            <option value="pingpong">Back and forth</option>
+            <option value="shuffle">Shuffle</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="row" style="justify-content:space-between">
+      <button class="btn" id="testBtn" type="button">Test the reveal with sample poses</button>
+      <button class="btn amber" id="doneBtn" type="button">Save and close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const W = 1280, H = 720;
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const amp = reduce ? 0.25 : 1;
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+
+  /* ---------- settings ---------- */
+  const DEF = {
+    mode: 'auto', bpm: 120, every: 1, order: 'loop', startAt: 0, vol: 0.9, hold: 3, fs: true,
+    prompts: [
+      'Palm open | Fingers spread, facing the camera',
+      'Fist | Close your hand tight',
+      'Point | Index finger at the screen',
+      'Claw | Bend your fingers like claws',
+      'Both hands up | Raise both hands high',
+      'Chomp | Open and close your hands like a mouth'
+    ].join('\n')
+  };
+  let CFG = { ...DEF };
+  try { Object.assign(CFG, JSON.parse(localStorage.getItem('gsar-cfg') || '{}')); } catch (_) {}
+  const save = () => { try { localStorage.setItem('gsar-cfg', JSON.stringify(CFG)); } catch (_) {} };
+  function parsePrompts(txt){
+    const out = String(txt).split('\n').map(l => l.trim()).filter(Boolean).slice(0, 10).map(l => {
+      const [t, ...h] = l.split('|'); return { t: t.trim(), h: h.join('|').trim() };
+    });
+    return out.length >= 2 ? out : parsePrompts(DEF.prompts);
+  }
+
+  /* ---------- IndexedDB (song) ---------- */
+  const idb = () => new Promise((res, rej) => {
+    const r = indexedDB.open('gsar', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  async function idbGet(k){
+    try { const db = await idb(); return await new Promise((res, rej) => { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
+    catch (_) { return undefined; }
+  }
+  async function idbSet(k, v){
+    try { const db = await idb(); await new Promise((res, rej) => { const t = db.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }); return true; }
+    catch (_) { return false; }
+  }
+  async function idbDel(k){
+    try { const db = await idb(); await new Promise((res, rej) => { const t = db.transaction('kv', 'readwrite'); t.objectStore('kv').delete(k); t.oncomplete = res; t.onerror = () => rej(t.error); }); } catch (_) {}
+  }
+
+  /* ---------- audio ---------- */
+  const audio = new Audio(); audio.preload = 'auto';
+  let song = null, songUrl = null, actx = null, analyser = null, freq = new Uint8Array(512);
+  const hasSong = () => !!song;
+  function setSong(name, blob){
+    if (songUrl) URL.revokeObjectURL(songUrl);
+    songUrl = URL.createObjectURL(blob);
+    audio.src = songUrl; song = { name };
+    updateSongUI();
+  }
+  function updateSongUI(){
+    $('#songInfo').textContent = song ? song.name : 'No song saved yet';
+    $('#prevBtn').hidden = !song; $('#delSong').hidden = !song;
+    $('#prevBtn').textContent = audio.paused ? 'Preview' : 'Stop preview';
+  }
+  audio.addEventListener('loadedmetadata', () => {
+    if (song && isFinite(audio.duration)) {
+      const m = Math.floor(audio.duration / 60), s = String(Math.round(audio.duration % 60)).padStart(2, '0');
+      $('#songInfo').textContent = `${song.name} (${m}:${s})`;
+    }
+  });
+  audio.addEventListener('error', () => {
+    if (!song) return;
+    song = null; $('#songInfo').textContent = 'That file can’t be played. Try an MP3, M4A or WAV.'; $('#prevBtn').hidden = true; $('#delSong').hidden = true;
+  });
+  audio.addEventListener('pause', () => { if (!$('#prevBtn').hidden) $('#prevBtn').textContent = 'Preview'; });
+  audio.addEventListener('play', () => { if (!$('#prevBtn').hidden) $('#prevBtn').textContent = 'Stop preview'; });
+
+  function ensureAudio(){
+    if (actx) return;
+    try {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = actx.createMediaElementSource(audio);
+      analyser = actx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.55;
+      src.connect(analyser); analyser.connect(actx.destination);
+      freq = new Uint8Array(analyser.frequencyBinCount);
+    } catch (_) { actx = null; analyser = null; }
+  }
+  function beep(f, d, v = 0.06, type = 'sine'){
+    if (!actx) return;
+    const o = actx.createOscillator(), gn = actx.createGain(), t = actx.currentTime;
+    o.type = type; o.frequency.value = f;
+    gn.gain.setValueAtTime(v, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(gn); gn.connect(actx.destination); o.start(t); o.stop(t + d + 0.02);
+  }
+  let drone = null;
+  function startDrone(){
+    if (!actx || drone) return;
+    const gn = actx.createGain(), lp = actx.createBiquadFilter(), t = actx.currentTime;
+    lp.type = 'lowpass'; lp.frequency.value = 170;
+    gn.gain.setValueAtTime(0.0001, t); gn.gain.linearRampToValueAtTime(0.05, t + 2.5);
+    const o1 = actx.createOscillator(), o2 = actx.createOscillator();
+    o1.type = o2.type = 'sawtooth'; o1.frequency.value = 46; o2.frequency.value = 48.4;
+    o1.connect(lp); o2.connect(lp); lp.connect(gn); gn.connect(actx.destination);
+    o1.start(); o2.start(); drone = { o1, o2, gn };
+  }
+  function stopDrone(fade = 0.3){
+    if (!drone || !actx) return;
+    const t = actx.currentTime, d = drone; drone = null;
+    d.gn.gain.cancelScheduledValues(t); d.gn.gain.setValueAtTime(d.gn.gain.value, t); d.gn.gain.linearRampToValueAtTime(0.0001, t + fade);
+    setTimeout(() => { try { d.o1.stop(); d.o2.stop(); } catch (_) {} }, fade * 1000 + 50);
+  }
+
+  /* ---------- screens ---------- */
+  let currentScr = 'title', teleTimer = 0;
+  function showScr(name){
+    currentScr = name;
+    ['Title', 'Cal', 'Proc', 'Black', 'Show'].forEach(n => { $('#scr' + n).hidden = n.toLowerCase() !== name; });
+    clearInterval(teleTimer);
+    if (name === 'cal') teleTimer = setInterval(() => {
+      const r = () => (0.38 + Math.random() * 0.24).toFixed(3);
+      $('#tele').textContent = `HAND-XY  ${r()} ${r()}\nCONF     ${(0.88 + Math.random() * 0.1).toFixed(2)}\nJOINTS   21/21\nDEPTH    ${(0.4 + Math.random() * 0.2).toFixed(2)}m`;
+    }, 130);
+  }
+  function toast(msg, ms = 4000){
+    const t = $('#toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toast.h); toast.h = setTimeout(() => { t.hidden = true; }, ms);
+  }
+
+  /* ---------- title ---------- */
+  (function fakeChecks(){
+    [['#ck1', 900], ['#ck2', 1900], ['#ck3', 2900]].forEach(([id, ms]) => setTimeout(() => {
+      const li = $(id); li.classList.add('ok'); li.querySelector('span').textContent = 'ready';
+    }, ms));
+    setTimeout(() => { $('#begin').disabled = false; }, 3300);
+  })();
+
+  let logoTaps = 0, logoT = 0;
+  $('#logo').addEventListener('click', () => {
+    logoTaps++; clearTimeout(logoT); logoT = setTimeout(() => { logoTaps = 0; }, 2500);
+    if (logoTaps >= 5) { logoTaps = 0; openSetup(); }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === '`' && currentScr === 'title' && $('#setup').hidden) openSetup();
+  });
+
+  $('#begin').addEventListener('click', () => {
+    if (!hasSong()) { toast('No song is saved yet. Tap the logo 5 times to open setup.'); return; }
+    ensureAudio();
+    if (actx && actx.state === 'suspended') actx.resume();
+    startDrone();
+    if (CFG.fs && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+    runCalibration();
+  });
+
+  /* ---------- camera ---------- */
+  const video = $('#video');
+  let stream = null;
+  async function startCam(){
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error('x'), { name: 'Unsupported' });
+      stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, audio: false });
+      video.srcObject = stream; await video.play();
+      return true;
+    } catch (e) {
+      const m = {
+        NotAllowedError: 'CAMERA ACCESS DENIED. Allow the camera for this page in your browser, then retry.',
+        SecurityError: 'CAMERA ACCESS DENIED. Allow the camera for this page in your browser, then retry.',
+        NotFoundError: 'NO CAMERA FOUND. Connect one and retry.',
+        NotReadableError: 'CAMERA IN USE by another app. Close it and retry.',
+        Unsupported: 'THIS BROWSER CAN’T OPEN A CAMERA HERE. Try Chrome, Edge, Firefox or Safari.'
+      };
+      $('#camerrText').textContent = m[e.name] || 'CAMERA FAILED TO START. Retry.';
+      return false;
+    }
+  }
+  function stopCam(){
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = null; video.srcObject = null;
+  }
+  $('#retryCam').addEventListener('click', () => { runCalibration(); });
+
+  /* ---------- calibration ---------- */
+  const CIRC = 2 * Math.PI * 70;
+  const ring = $('#ring');
+  ring.style.strokeDasharray = CIRC;
+  let runId = 0, captured = [], prompts = [];
+
+  function drawCover(g, src, sw, sh, mirror){
+    const k = Math.max(W / sw, H / sh), dw = sw * k, dh = sh * k;
+    g.save(); if (mirror) { g.translate(W, 0); g.scale(-1, 1); }
+    g.drawImage(src, (W - dw) / 2, (H - dh) / 2, dw, dh); g.restore();
+  }
+  function setStatus(s){ $('#calStatus').textContent = s; }
+  function buildDots(cur){
+    $('#dots').innerHTML = prompts.map((_, i) => `<span class="${i < captured.length ? 'done' : (i === cur ? 'cur' : '')}"></span>`).join('');
+  }
+  function holdRing(my, ms){
+    return new Promise(res => {
+      setStatus('HOLD STILL');
+      const t0 = performance.now(); let lastSec = -1;
+      (function f(now){
+        if (my !== runId) return res();
+        const p = Math.min(1, (now - t0) / ms);
+        ring.style.strokeDashoffset = String(CIRC * (1 - p));
+        const sec = Math.floor((now - t0) / 1000);
+        if (sec !== lastSec && p < 1) { lastSec = sec; beep(300, 0.06, 0.03, 'square'); }
+        if (p < 1) requestAnimationFrame(f); else res();
+      })(t0);
+    });
+  }
+  async function runCalibration(){
+    const my = ++runId;
+    showScr('cal'); $('#camerr').hidden = true;
+    const ok = await startCam();
+    if (my !== runId) return;
+    if (!ok) { $('#camerr').hidden = false; return; }
+    prompts = parsePrompts(CFG.prompts); captured = [];
+    const glitchAt = prompts.length > 3 ? 2 : -1;
+    for (let i = 0; i < prompts.length; i++) {
+      $('#calCount').textContent = `CALIBRATION ${i + 1} / ${prompts.length}`;
+      $('#calPrompt').textContent = prompts[i].t.toUpperCase();
+      $('#calHint').textContent = prompts[i].h;
+      ring.style.strokeDashoffset = String(CIRC);
+      buildDots(i); setStatus('ACQUIRING HAND…');
+      await wait(1400); if (my !== runId) return;
+      if (i === glitchAt) {
+        $('#scrCal').classList.add('glitching'); setStatus('SIGNAL LOST · RECALIBRATING');
+        beep(90, 0.5, 0.08, 'sawtooth');
+        await wait(1700); if (my !== runId) return;
+        $('#scrCal').classList.remove('glitching'); setStatus('ACQUIRING HAND…');
+        await wait(900); if (my !== runId) return;
+      }
+      await holdRing(my, CFG.hold * 1000); if (my !== runId) return;
+      const c = document.createElement('canvas'); c.width = W; c.height = H;
+      drawCover(c.getContext('2d'), video, video.videoWidth || W, video.videoHeight || H, true);
+      captured.push(c); buildDots(i + 1);
+      const fl = $('#camflash'); fl.classList.add('on');
+      requestAnimationFrame(() => requestAnimationFrame(() => fl.classList.remove('on')));
+      beep(880, 0.16, 0.07);
+      setStatus('LOCKED');
+      await wait(1000); if (my !== runId) return;
+    }
+    processing(my);
+  }
+
+  /* ---------- processing ---------- */
+  async function processing(my){
+    stopCam(); showScr('proc');
+    const term = $('#term'), bar = $('#progBar'), pct = $('#pct');
+    term.innerHTML = ''; $('#enter').hidden = true; bar.style.width = '0'; pct.textContent = '0%';
+    $('#thumbs').innerHTML = '';
+    captured.forEach(c => { const t = document.createElement('canvas'); t.width = 156; t.height = 88; t.getContext('2d').drawImage(c, 0, 0, 156, 88); $('#thumbs').appendChild(t); });
+    const L = [
+      ['mapping hand geometry', 'ok', ''],
+      [`extracting joints from ${captured.length} poses`, 'ok', ''],
+      ['building puppet rig', 'ok', ''],
+      ['syncing rhythm engine', 'ok', ''],
+      ['scanning room', 'anomaly', 'warn'],
+      ['unknown presence detected', 'WARNING', 'bad'],
+      ['presence has joined the session', 'accepted', 'bad']
+    ];
+    for (let i = 0; i < L.length; i++) {
+      await wait(900 + Math.random() * 500); if (my !== runId) return;
+      const d = document.createElement('div');
+      d.className = 'ln ' + L[i][2];
+      d.innerHTML = `&gt; ${L[i][0]} ......... <b>${L[i][1]}</b>`;
+      term.appendChild(d);
+      const p = Math.round((i + 1) / L.length * 99);
+      bar.style.width = p + '%'; pct.textContent = p + '%';
+      if (L[i][2] === 'bad') beep(70, 0.6, 0.09, 'sawtooth');
+    }
+    await wait(1600); if (my !== runId) return;
+    $('#enter').hidden = false; $('#enter').focus();
+  }
+  $('#enter').addEventListener('click', () => {
+    // unlock playback inside this tap so the song can start after the blackout
+    audio.muted = true;
+    audio.play().then(() => { audio.pause(); audio.muted = false; }).catch(() => { audio.muted = false; });
+    if (actx && actx.state === 'suspended') actx.resume();
+    stopDrone(0.1);
+    runId++;
+    poses = captured.slice();
+    showScr('black');
+    setTimeout(() => { showScr('show'); startShow(); }, 1900);
+  });
+
+  /* ---------- the reveal ---------- */
+  const stage = $('#stage'), g = stage.getContext('2d');
+  let poses = [], idx = 0, prevIdx = 0, dir = 1, pulse = 0, stepCount = 0, beatCount = 0;
+  let lastStep = 0, lastBeatT = 0, avgE = 0, prevE = 0, offset = 0;
+  let raf = 0, lastNow = 0, showActive = false, wasKey = '', ended = false, show0 = 0;
+  const clk = { t: 0, playing: true };
+  const COLS = ['#f6e9d0', '#ffb52e', '#26d0ce', '#ff7a92'];
+  const getTime = () => hasSong() ? audio.currentTime : clk.t;
+  const isPlaying = () => hasSong() ? !audio.paused : clk.playing;
+  const stepDur = () => 60 / CFG.bpm * CFG.every;
+  const resync = () => { lastStep = Math.floor((getTime() - offset) / stepDur()); };
+
+  // one-time overlay: scanlines + vignette
+  const ov = document.createElement('canvas'); ov.width = W; ov.height = H;
+  (() => {
+    const o = ov.getContext('2d');
+    o.fillStyle = 'rgba(0,0,0,.13)'; for (let y = 0; y < H; y += 4) o.fillRect(0, y, W, 1);
+    const vg = o.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.95);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.6)');
+    o.fillStyle = vg; o.fillRect(0, 0, W, H);
+  })();
+  if (document.fonts && document.fonts.load) document.fonts.load('34px Bungee');
+
+  function startShow(){
+    if (poses.length < 2) return;
+    ensureAudio();
+    if (actx && actx.state === 'suspended') actx.resume();
+    audio.muted = false; audio.volume = CFG.vol; audio.loop = CFG.startAt === 0;
+    showActive = true; show0 = performance.now();
+    setModeUI(hasSong() ? CFG.mode : 'bpm');
+    restart();
+    lastNow = performance.now();
+    cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
+  }
+  function restart(){
+    idx = 0; prevIdx = 0; dir = 1; stepCount = 0; beatCount = 0; pulse = 1; ended = false;
+    lastBeatT = 0; avgE = 0; prevE = 0; show0 = performance.now(); ghosts.length = 0; parts.length = 0;
+    if (hasSong()) { audio.currentTime = CFG.startAt; audio.play().catch(() => {}); }
+    else { clk.t = 0; clk.playing = true; }
+    resync(); wasKey = '';
+  }
+  function togglePlay(){
+    if (hasSong()) { if (ended) { restart(); return; } if (audio.paused) audio.play().catch(() => {}); else audio.pause(); }
+    else clk.playing = !clk.playing;
+  }
+  // Keep the song going forever. Native loop when it starts at 0, manual restart when a start offset is set.
+  audio.addEventListener('ended', () => {
+    if (!showActive) return;
+    audio.currentTime = CFG.startAt; audio.play().catch(() => {}); lastBeatT = 0; resync();
+  });
+
+  function step(){
+    prevIdx = idx; const n = poses.length;
+    if (CFG.order === 'shuffle') { let k = idx; while (k === idx) k = Math.floor(Math.random() * n); idx = k; }
+    else if (CFG.order === 'pingpong') { if (idx + dir >= n || idx + dir < 0) dir = -dir; idx += dir; }
+    else idx = (idx + 1) % n;
+    stepCount++; pulse = 1; onStepFx();
+  }
+  function detect(now){
+    if (CFG.mode === 'auto' && hasSong() && analyser) {
+      let e = 0; for (let i = 1; i <= 6; i++) e += freq[i]; e /= 6 * 255;
+      avgE = avgE * 0.96 + e * 0.04;
+      if (e > avgE * 1.3 + 0.04 && e > prevE && now - lastBeatT > 270) {
+        lastBeatT = now; beatCount++;
+        if (beatCount % Math.max(1, Math.round(CFG.every)) === 0) step();
+      }
+      prevE = e;
+    } else {
+      const s = Math.floor((getTime() - offset) / stepDur());
+      if (s !== lastStep) { lastStep = s; step(); }
+    }
+  }
+  function loop(now){
+    if (!showActive) return;
+    raf = requestAnimationFrame(loop);
+    const dt = Math.min(0.05, (now - lastNow) / 1000); lastNow = now;
+    if (!hasSong() && clk.playing) clk.t += dt;
+    const playing = isPlaying();
+    if (analyser && hasSong()) analyser.getByteFrequencyData(freq);
+    if (playing) detect(now);
+    pulse = Math.max(0, pulse - dt * 3.2);
+    updateFx(dt, playing);
+    const key = playing + '|' + ended;
+    if (key !== wasKey) { wasKey = key; $('#pp').textContent = ended ? 'Play again' : (playing ? 'Pause' : 'Play'); }
+    draw(now / 1000, playing, now);
+  }
+
+  const rr = (x, y, w, h, r) => { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); };
+  function frame(cv, cx, cy, w, h, sc, rot, alpha, border, glow, gl){
+    g.save(); g.translate(cx, cy); g.rotate(rot); g.scale(sc, sc); g.globalAlpha = alpha;
+    if (glow > 0) {
+      g.strokeStyle = border;
+      for (let i = 3; i >= 1; i--) {
+        g.globalAlpha = alpha * Math.min(0.5, glow / 140) * (0.5 / i); g.lineWidth = 10 * i;
+        rr(-w / 2 - 12, -h / 2 - 12, w + 24, h + 24, 18 + i * 4); g.stroke();
+      }
+      g.globalAlpha = alpha;
+    }
+    g.fillStyle = border;
+    rr(-w / 2 - 12, -h / 2 - 12, w + 24, h + 24, 18); g.fill();
+    rr(-w / 2, -h / 2, w, h, 8); g.clip();
+    if (gl > 0.05 && gHas) {
+      const N = 9, sh = h / N, sSrc = cv.height / N;
+      for (let i = 0; i < N; i++) {
+        g.drawImage(cv, 0, i * sSrc, cv.width, sSrc, -w / 2 + gOff[i] * gl * amp, -h / 2 + i * sh, w, sh + 1);
+      }
+    } else g.drawImage(cv, -w / 2, -h / 2, w, h);
+    g.restore();
+  }
+  function curtain(side, cw, sway){
+    g.save(); if (side > 0) { g.translate(W, 0); g.scale(-1, 1); }
+    const gr = g.createLinearGradient(0, 0, cw, 0);
+    gr.addColorStop(0, '#3d0a15'); gr.addColorStop(0.6, '#8a1a2e'); gr.addColorStop(1, '#5a0f1d');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(0, 0); g.lineTo(cw, 0);
+    g.quadraticCurveTo(cw * 0.5 + sway, H * 0.5, cw * 0.92, H); g.lineTo(0, H); g.closePath(); g.fill(); g.clip();
+    g.fillStyle = 'rgba(0,0,0,.18)'; for (let x = 10; x < cw; x += 26) g.fillRect(x, 0, 10, H);
+    g.restore();
+  }
+  const ease = p => 1 - Math.pow(1 - p, 3);
+
+  /* ---------- motion: springs, ghosts, embers, glitch ---------- */
+  const ghosts = [], parts = [];
+  const spr = { s: 0, sv: 0, r: 0, rv: 0, y: 0, yv: 0 };
+  let bass = 0, glitch = 0, shakeX = 0, shakeY = 0, fxT = 0, gHas = false, gOff = new Array(9).fill(0);
+  const eyes = [{ x: 178, y: 470, ph: 0 }, { x: 1102, y: 420, ph: 2.3 }, { x: 186, y: 250, ph: 4.1 }, { x: 1094, y: 250, ph: 5.6 }];
+  const TITLE = 'JOIN US FOR A BITE';
+
+  function spawnEmber(burst){
+    parts.push({
+      x: W / 2 + (Math.random() - 0.5) * 820, y: burst ? 560 + Math.random() * 90 : 640 + Math.random() * 20,
+      vx: (Math.random() - 0.5) * 70, vy: -(burst ? 90 + Math.random() * 230 : 40 + Math.random() * 90),
+      life: 1.2 + Math.random() * 1.4, max: 2.6, size: 1.5 + Math.random() * 3.5, hue: 8 + Math.random() * 40
+    });
+  }
+  function onStepFx(){
+    const flip = stepCount % 2 ? 1 : -1;
+    spr.sv += 16 * amp; spr.rv += flip * 0.8 * amp; spr.yv -= 380 * amp;
+    glitch = 1; gHas = Math.random() < 0.2;
+    gOff = Array.from({ length: 9 }, () => gHas && Math.random() < 0.5 ? (Math.random() - 0.5) * 22 : 0);
+    ghosts.push({ cv: poses[prevIdx], x: 0, y: 0, vx: flip * -820, vy: -90, r: 0, vr: flip * -1.4, a: 0.6 });
+    if (ghosts.length > 4) ghosts.shift();
+    if (!reduce) for (let i = 0; i < 10; i++) spawnEmber(true);
+    if (parts.length > 140) parts.splice(0, parts.length - 140);
+  }
+  function updateFx(dt, playing){
+    for (let k = 0; k < 2; k++) {
+      const h = dt / 2;
+      spr.sv += (-180 * spr.s - 11 * spr.sv) * h; spr.s += spr.sv * h;
+      spr.rv += (-140 * spr.r - 9 * spr.rv) * h; spr.r += spr.rv * h;
+      spr.yv += (-160 * spr.y - 10 * spr.yv) * h; spr.y += spr.yv * h;
+    }
+    let target = pulse * 0.6;
+    if (hasSong() && analyser && playing) { let e = 0; for (let i = 1; i <= 6; i++) e += freq[i]; target = e / (6 * 255); }
+    bass += (target - bass) * Math.min(1, dt * 12);
+    glitch = Math.max(0, glitch - dt * 6); fxT += dt;
+    for (let i = ghosts.length - 1; i >= 0; i--) {
+      const q = ghosts[i]; q.x += q.vx * dt; q.y += q.vy * dt; q.r += q.vr * dt; q.a -= dt * 1.4;
+      if (q.a <= 0) ghosts.splice(i, 1);
+    }
+    if (playing && !reduce && Math.random() < 0.25) spawnEmber(false);
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const q = parts[i]; q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vx += (Math.random() - 0.5) * 40 * dt;
+      if (q.life <= 0) parts.splice(i, 1);
+    }
+    shakeX = Math.sin(fxT * 47) * 3 * pulse * amp; shakeY = Math.cos(fxT * 39) * 2 * pulse * amp;
+  }
+  function beam(ox, oy, ang, spread, len, rgb, a){
+    g.save(); g.globalCompositeOperation = 'lighter';
+    const gr = g.createLinearGradient(ox, oy, ox + Math.cos(ang) * len, oy + Math.sin(ang) * len);
+    gr.addColorStop(0, `rgba(${rgb},${a})`); gr.addColorStop(1, `rgba(${rgb},0)`);
+    g.fillStyle = gr; g.beginPath(); g.moveTo(ox, oy);
+    g.lineTo(ox + Math.cos(ang - spread) * len, oy + Math.sin(ang - spread) * len);
+    g.lineTo(ox + Math.cos(ang + spread) * len, oy + Math.sin(ang + spread) * len);
+    g.closePath(); g.fill(); g.restore();
+  }
+
+  function draw(t, playing, now){
+    const FW = 792, FH = 446, cx = W / 2, cy = 332, fy = 650;
+    const open = ease(Math.min(1, Math.max(0, (now - show0 - 500) / 1500)));
+    const flip = stepCount % 2 ? 1 : -1;
+    const sc = 1 + spr.s * 0.06 + bass * 0.04 + Math.sin(t * 2) * 0.006 * amp;
+    const rot = spr.r + Math.sin(t * 1.6) * 0.011 * amp;
+    const dy = spr.y + Math.sin(t * 2.3) * 5 * amp;
+
+    g.save(); g.translate(shakeX, shakeY);
+    const wall = g.createLinearGradient(0, 0, 0, H);
+    wall.addColorStop(0, '#2a0f18'); wall.addColorStop(1, '#14090c');
+    g.fillStyle = wall; g.fillRect(-20, -20, W + 40, H + 40);
+    const sp = g.createRadialGradient(cx, 300, 40, cx, 300, 520 + bass * 120);
+    sp.addColorStop(0, `rgba(255,181,46,${0.3 + 0.3 * bass + 0.2 * pulse})`); sp.addColorStop(1, 'rgba(20,9,12,0)');
+    g.fillStyle = sp; g.fillRect(-20, -20, W + 40, H + 40);
+
+    // floor with chase lights
+    const ts = 48, rh = (H - fy) / 2, cols = Math.ceil(W / ts), chase = Math.floor(t * 9) % cols;
+    for (let r = 0; r < 2; r++) for (let c = -1; c < cols + 1; c++) {
+      g.fillStyle = (r + c) % 2 ? '#2b1218' : '#1b0b10'; g.fillRect(c * ts, fy + r * rh, ts, rh);
+      if (c === chase || (c + r * 3 + stepCount * 2) % 9 === 0) { g.fillStyle = `rgba(255,181,46,${0.18 + 0.25 * pulse})`; g.fillRect(c * ts, fy + r * rh, ts, rh); }
+    }
+    g.fillStyle = '#ffb52e'; g.globalAlpha = 0.5; g.fillRect(0, fy - 2, W, 3); g.globalAlpha = 1;
+
+    // sweeping stage beams
+    beam(120, 80, 1.1 + Math.sin(t * 0.8) * 0.4, 0.11, 950, '255,181,46', 0.15 + 0.25 * bass);
+    beam(W - 120, 80, Math.PI - 1.1 - Math.sin(t * 0.7 + 1) * 0.4, 0.11, 950, '38,208,206', 0.12 + 0.22 * bass);
+    beam(W / 2, 80, Math.PI / 2 + Math.sin(t * 1.3) * 0.5, 0.07, 800, '255,60,90', 0.07 + 0.18 * pulse);
+
+    // watching eyes in the dark
+    eyes.forEach(e => {
+      const vis = Math.sin(t * 0.35 + e.ph); if (vis < 0.55) return;
+      const ph = t * 1.3 + e.ph * 3, blink = Math.floor(ph) % 5 === 0 && ph % 1 < 0.15;
+      g.save(); g.globalAlpha = Math.min(1, (vis - 0.55) * 6) * 0.9; g.fillStyle = '#fff6d8';
+      g.shadowColor = '#ff2e4a'; g.shadowBlur = 16;
+      [-17, 17].forEach(ox => { g.beginPath(); g.ellipse(e.x + ox, e.y, 9, blink ? 1 : 6, 0, 0, 7); g.fill(); });
+      g.restore();
+    });
+
+    // spectrum bars
+    const n = 40, bx = 190, bw = (W - 380) / n;
+    for (let i = 0; i < n; i++) {
+      const v = (hasSong() && analyser) ? freq[1 + i * 3] / 255 : (0.2 + 0.8 * Math.abs(Math.sin(t * 3 + i * 0.7))) * pulse * 0.8;
+      const bh = 8 + v * 110; g.fillStyle = `hsla(${20 + v * 30},100%,58%,0.45)`; g.fillRect(bx + i * bw + 2, fy - bh, bw - 4, bh);
+    }
+
+    // wobbling puppet strings
+    const topY = cy + dy - (FH / 2 + 12) * sc;
+    g.strokeStyle = 'rgba(246,233,208,.6)'; g.lineWidth = 2;
+    [[-1, -260, 0], [1, 260, 1.7]].forEach(([s2, ax, seed]) => {
+      [[ax, s2 * (FW / 2 + 12) * sc], [ax * 0.45, s2 * (FW / 4) * sc]].forEach(([a0, a1], j) => {
+        const x0 = cx + a0, x1 = cx + a1, mx = (x0 + x1) / 2 + Math.sin(t * 9 + seed + j) * (3 + 16 * pulse);
+        g.beginPath(); g.moveTo(x0, 80); g.quadraticCurveTo(mx, (80 + topY) / 2, x1, topY); g.stroke();
+      });
+    });
+
+    // ghosts flying off, then the live pose
+    ghosts.forEach(q => frame(q.cv, cx + q.x, cy + q.y, FW, FH, 0.95, q.r, Math.max(0, q.a), '#f6e9d0', 0, 0));
+    if (glitch > 0.05 && gHas) {
+      g.save(); g.globalCompositeOperation = 'lighter'; g.lineWidth = 5; g.globalAlpha = 0.45 * glitch;
+      const o = 8 * glitch * amp;
+      g.strokeStyle = '#ff2a44'; rr(cx - FW / 2 - 12 + o, cy + dy - FH / 2 - 12, FW + 24, FH + 24, 18); g.stroke();
+      g.strokeStyle = '#26d0ce'; rr(cx - FW / 2 - 12 - o, cy + dy - FH / 2 - 12, FW + 24, FH + 24, 18); g.stroke();
+      g.restore();
+    }
+    const border = COLS[stepCount % COLS.length];
+    frame(poses[idx], cx, cy + dy, FW, FH, sc, rot, 1, border, 40 + 60 * pulse + 40 * bass, glitch > 0.4 ? glitch : 0);
+
+    // embers
+    g.save(); g.globalCompositeOperation = 'lighter';
+    parts.forEach(q => {
+      const a = Math.max(0, q.life / q.max);
+      g.fillStyle = `hsla(${q.hue},100%,60%,${Math.min(0.9, a * 1.4)})`;
+      g.beginPath(); g.arc(q.x, q.y, q.size * (0.5 + a * 0.5), 0, 7); g.fill();
+    });
+    g.restore();
+
+    // pose strip
+    const k = poses.length, tw = 76, th = 43, gap = 8, total = k * tw + (k - 1) * gap;
+    g.fillStyle = 'rgba(0,0,0,.55)'; rr((W - total) / 2 - 12, fy + 8, total + 24, th + 16, 10); g.fill();
+    for (let i = 0; i < k; i++) {
+      const x = (W - total) / 2 + i * (tw + gap), y = fy + 16, cur = i === idx;
+      const z = cur ? 1.08 + Math.max(0, spr.s) * 0.14 : 1, w2 = tw * z, h2 = th * z;
+      g.globalAlpha = cur ? 1 : 0.6; g.drawImage(poses[i], x - (w2 - tw) / 2, y - (h2 - th) / 2, w2, h2);
+      if (cur) { g.globalAlpha = 1; g.strokeStyle = '#ffb52e'; g.lineWidth = 3; g.strokeRect(x - (w2 - tw) / 2 - 2, y - (h2 - th) / 2 - 2, w2 + 4, h2 + 4); }
+    }
+    g.globalAlpha = 1;
+
+    // curtains
+    const cw = 150 + (640 - 150) * (1 - open), sway = Math.sin(t * 0.9) * 6 + Math.sin(t * 2.1) * 2 + pulse * 10 * amp + bass * 8;
+    curtain(-1, cw, sway); curtain(1, cw, sway);
+
+    // marquee
+    g.fillStyle = '#3a0f1a'; g.fillRect(-20, 0, W + 40, 76);
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(-20, 76, W + 40, 4);
+    const tick = Math.floor(t * 12);
+    for (let i = 0; i < 18; i++) {
+      const left = i < 9, j = left ? i : i - 9, x = left ? 40 + j * 36 : W - 40 - j * 36;
+      const on = (i + tick) % 3 === 0 || pulse > 0.85;
+      if (on) { g.fillStyle = 'rgba(255,181,46,.28)'; g.beginPath(); g.arc(x, 38, 17, 0, 7); g.fill(); }
+      g.fillStyle = on ? '#ffd36b' : '#6b3a2a';
+      g.beginPath(); g.arc(x, 38, 9, 0, 7); g.fill();
+    }
+    g.save(); g.font = '34px Bungee, Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const ws = [...TITLE].map(ch => g.measureText(ch).width), tot = ws.reduce((a, b) => a + b, 0);
+    let lx = W / 2 - tot / 2;
+    [...TITLE].forEach((ch, i) => {
+      const ly = 40 + Math.sin(t * 6 + i * 0.55) * (2 + 5 * pulse) * amp;
+      g.fillStyle = '#7d0f22'; g.fillText(ch, lx + ws[i] / 2 + 2, ly + 3);
+      g.fillStyle = COLS[(i + stepCount) % COLS.length];
+      g.fillText(ch, lx + ws[i] / 2, ly);
+      lx += ws[i];
+    });
+    g.restore();
+    g.restore(); // end shake
+
+    // title slam over the closed curtains
+    const ia = now - show0;
+    if (ia < 2700) {
+      const p = Math.min(1, ia / 380), z = 1.6 - 0.6 * ease(p), al = (ia < 1800 ? 1 : 1 - (ia - 1800) / 900) * Math.min(1, ia / 150);
+      g.save(); g.translate(W / 2, H / 2); g.scale(z, z); g.globalAlpha = Math.max(0, al);
+      g.font = '104px Bungee, Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillStyle = '#f6e9d0'; g.shadowColor = '#ff2e4a'; g.shadowBlur = 40;
+      g.fillText('JOIN US', 0, -58); g.fillText('FOR A BITE', 0, 58); g.restore();
+    }
+
+    if (pulse > 0.01) { g.fillStyle = `rgba(255,40,60,${0.05 * pulse})`; g.fillRect(0, 0, W, H); }
+    g.drawImage(ov, 0, 0);
+
+    if (!playing) {
+      g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(0, 0, W, H); g.fillStyle = '#f6e9d0';
+      g.fillRect(W / 2 - 30, H / 2 - 44, 20, 88); g.fillRect(W / 2 + 10, H / 2 - 44, 20, 88);
+    }
+  }
+
+  /* show controls */
+  const ui = $('#ui'); let uiT = 0;
+  function pokeUI(){ ui.classList.add('on'); clearTimeout(uiT); uiT = setTimeout(() => ui.classList.remove('on'), 2800); }
+  $('#scrShow').addEventListener('pointermove', pokeUI);
+  $('#scrShow').addEventListener('pointerdown', pokeUI);
+  $('#stage').addEventListener('click', togglePlay);
+  $('#pp').onclick = togglePlay;
+  $('#restart').onclick = restart;
+  $('#modeBtn').onclick = () => { if (CFG.mode === 'auto') setModeUI('bpm'); else if (hasSong()) setModeUI('auto'); };
+  $('#sync').onclick = () => { offset = getTime(); resync(); pulse = 1; };
+  $('#nudgeM').onclick = () => { offset += 0.05; resync(); };
+  $('#nudgeP').onclick = () => { offset -= 0.05; resync(); };
+  $('#bpm2').onchange = e => setBpm(+e.target.value);
+  $('#fs').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); };
+  $('#reset').onclick = () => location.reload();
+  document.addEventListener('keydown', e => {
+    if (!showActive || e.target.closest('input,select,textarea,button')) return;
+    if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+    if (e.key === 'f' || e.key === 'F') $('#fs').click();
+  });
+
+  function setModeUI(m){
+    if (m === 'auto' && !hasSong()) m = 'bpm';
+    CFG.mode = m; save();
+    document.querySelectorAll('input[name=smode]').forEach(r => { r.checked = r.value === m; });
+    $('#bpmRow').classList.toggle('dim', m === 'auto');
+    $('#modeBtn').textContent = m === 'auto' ? 'Mode: follow beat' : 'Mode: fixed tempo';
+    $('#syncGrp').hidden = m === 'auto';
+    $('#bpm2').value = CFG.bpm;
+    beatCount = 0; resync();
+  }
+  function setBpm(v){
+    v = Math.min(240, Math.max(40, Math.round(v) || 120));
+    CFG.bpm = v; $('#bpm').value = v; $('#bpm2').value = v; save(); resync();
+  }
+
+  /* ---------- setup panel ---------- */
+  function openSetup(){
+    $('#prompts').value = CFG.prompts; $('#hold').value = CFG.hold; $('#chkFs').checked = CFG.fs;
+    $('#startAt').value = CFG.startAt; $('#vol').value = CFG.vol; $('#bpm').value = CFG.bpm;
+    $('#every').value = String(CFG.every); $('#order').value = CFG.order;
+    document.querySelectorAll('input[name=smode]').forEach(r => { r.checked = r.value === CFG.mode; });
+    $('#bpmRow').classList.toggle('dim', CFG.mode === 'auto');
+    updateSongUI();
+    $('#setup').hidden = false; $('#setup').scrollTop = 0;
+  }
+  function closeSetup(){
+    audio.pause(); audio.loop = false;
+    CFG.prompts = $('#prompts').value.trim() ? $('#prompts').value : DEF.prompts;
+    CFG.hold = Math.min(6, Math.max(1, parseFloat($('#hold').value) || 3));
+    CFG.fs = $('#chkFs').checked;
+    CFG.startAt = Math.max(0, parseFloat($('#startAt').value) || 0);
+    save(); $('#setup').hidden = true;
+  }
+  $('#doneBtn').onclick = closeSetup;
+  $('#songIn').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    setSong(f.name, f);
+    const ok = await idbSet('song', { name: f.name, blob: f });
+    if (!ok) toast('Saved for this visit only. This browser blocked permanent storage, so set the song up again if you reload.', 6000);
+    if (!song) return;
+    CFG.mode = 'auto'; document.querySelectorAll('input[name=smode]').forEach(r => { r.checked = r.value === 'auto'; });
+    $('#bpmRow').classList.add('dim'); save();
+    e.target.value = '';
+  };
+  $('#delSong').onclick = async () => {
+    audio.pause(); audio.removeAttribute('src'); audio.load(); song = null; await idbDel('song'); updateSongUI();
+    $('#songInfo').textContent = 'No song saved yet';
+  };
+  $('#prevBtn').onclick = () => { audio.loop = false; if (audio.paused) { audio.currentTime = parseFloat($('#startAt').value) || 0; audio.play(); } else audio.pause(); };
+  $('#vol').oninput = e => { CFG.vol = +e.target.value; audio.volume = CFG.vol; save(); };
+  $('#startAt').onchange = e => { CFG.startAt = Math.max(0, parseFloat(e.target.value) || 0); save(); };
+  $('#every').onchange = e => { CFG.every = +e.target.value; save(); beatCount = 0; resync(); };
+  $('#order').onchange = e => { CFG.order = e.target.value; save(); };
+  document.querySelectorAll('input[name=smode]').forEach(r => r.onchange = () => {
+    if (r.value === 'auto' && !hasSong()) { toast('Choose a song first.'); r.checked = false; document.querySelector('input[name=smode][value=bpm]').checked = true; return; }
+    CFG.mode = r.value; $('#bpmRow').classList.toggle('dim', r.value === 'auto'); save();
+  });
+  $('#bpm').onchange = e => setBpm(+e.target.value);
+  let taps = [];
+  $('#tap').onclick = () => {
+    const n = performance.now();
+    if (taps.length && n - taps[taps.length - 1] > 2000) taps = [];
+    taps.push(n); taps = taps.slice(-8);
+    if (taps.length >= 2) setBpm(60000 / ((taps[taps.length - 1] - taps[0]) / (taps.length - 1)));
+  };
+  $('#testBtn').onclick = () => {
+    if (!hasSong()) { toast('Choose a song first.'); return; }
+    closeSetup(); ensureAudio();
+    if (actx && actx.state === 'suspended') actx.resume();
+    const glyphs = ['✋', '✊', '☝️', '🤟', '👐', '🤏'], hues = [350, 30, 190, 280, 50, 150];
+    poses = glyphs.map((gl, i) => {
+      const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+      const gr = x.createLinearGradient(0, 0, W, H); gr.addColorStop(0, `hsl(${hues[i]},70%,28%)`); gr.addColorStop(1, `hsl(${hues[i]},70%,10%)`);
+      x.fillStyle = gr; x.fillRect(0, 0, W, H);
+      x.font = '340px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.fillText(gl, W / 2, H / 2 + 20); return c;
+    });
+    showScr('show'); startShow(); pokeUI();
+  };
+
+  /* ---------- init ---------- */
+  (async () => {
+    const rec = await idbGet('song');
+    if (rec && rec.blob) setSong(rec.name, rec.blob);
+    audio.volume = CFG.vol;
+  })();
+})();
+</script>
+</body>
+</html>
