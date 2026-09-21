@@ -224,7 +224,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
 
     <div class="box">
       <h3>Song</h3>
-      <p>Choose your copy of “Join Us for a Bite”. It’s saved in this browser so it’s ready when your friend plays. It isn’t uploaded anywhere.</p>
+      <p>If a file named <b>default-song.mp3</b> sits in an <b>audio</b> folder next to this page, it loads automatically for everyone. Or choose a file here to override it. That choice is saved in this browser only.</p>
       <div class="row">
         <label class="filepick"><input type="file" id="songIn" accept="audio/*"><span class="btn">Choose audio file</span></label>
         <span class="songinfo" id="songInfo">No song saved yet</span>
@@ -329,7 +329,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
   /* ---------- HARD-CODED SONG (optional) ----------
      Paste your song as base64 between the quotes below, or run embed_song.py to do it for you.
      Leave it empty ("") to choose the song from the setup screen instead. */
-  const EMBEDDED_SONG = "default-song.mp3";
+  const EMBEDDED_SONG = "";
   const EMBEDDED_TYPE = "audio/mpeg";   // mp3 = audio/mpeg, m4a = audio/mp4, wav = audio/wav
   const EMBEDDED_NAME = "Join Us for a Bite";
   function embeddedBlob(){
@@ -360,6 +360,19 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
   const audio = new Audio(); audio.preload = 'auto'; audio.setAttribute('playsinline', '');
   let song = null, songUrl = null, actx = null, analyser = null, freq = new Uint8Array(512);
   const hasSong = () => !!song;
+  let songReadyResolve; const songReady = new Promise(r => { songReadyResolve = r; });
+  // Loads audio/default-song.mp3 from the same folder the page is served from (works on GitHub Pages or any web host)
+  const DEFAULT_SONG_URL = 'audio/default-song.mp3';
+  async function loadDefaultSong(){
+    try {
+      const res = await fetch(DEFAULT_SONG_URL, { cache: 'no-cache' });
+      if (!res.ok) return false;
+      const b = await res.blob();
+      if (/^text\//.test(b.type) || b.size < 5000) return false;   // a host that answers 200 with an HTML page
+      setSong('default-song.mp3', /^audio\//.test(b.type) ? b : new Blob([b], { type: 'audio/mpeg' }));
+      return true;
+    } catch (_) { return false; }
+  }
   function setSong(name, blob){
     if (songUrl) URL.revokeObjectURL(songUrl);
     songUrl = URL.createObjectURL(blob);
@@ -445,7 +458,7 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
     [['#ck1', 900], ['#ck2', 1900], ['#ck3', 2900]].forEach(([id, ms]) => setTimeout(() => {
       const li = $(id); li.classList.add('ok'); li.querySelector('span').textContent = 'ready';
     }, ms));
-    setTimeout(() => { $('#begin').disabled = false; }, 3300);
+    Promise.all([wait(3300), songReady]).then(() => { $('#begin').disabled = false; });
   })();
 
   let logoTaps = 0, logoT = 0;
@@ -1133,8 +1146,8 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
     e.target.value = '';
   };
   $('#delSong').onclick = async () => {
-    audio.pause(); audio.removeAttribute('src'); audio.load(); song = null; await idbDel('song'); updateSongUI();
-    $('#songInfo').textContent = 'No song saved yet';
+    audio.pause(); song = null; await idbDel('song');
+    if (!(await loadDefaultSong())) { audio.removeAttribute('src'); updateSongUI(); $('#songInfo').textContent = 'No song saved yet'; }
   };
   $('#prevBtn').onclick = () => { audio.loop = false; if (audio.paused) { audio.currentTime = parseFloat($('#startAt').value) || 0; audio.play(); } else audio.pause(); };
   $('#vol').oninput = e => { CFG.vol = +e.target.value; audio.volume = CFG.vol; save(); };
@@ -1175,11 +1188,14 @@ body{background:var(--void);color:var(--ink);font:16px/1.5 var(--ui);-webkit-tap
 
   /* ---------- init ---------- */
   (async () => {
-    if (EMBEDDED_SONG) { try { setSong(EMBEDDED_NAME, embeddedBlob()); } catch (_) {} }
-    else {
-      const rec = await idbGet('song');
-      if (rec && rec.blob) setSong(rec.name, rec.blob);
-    }
+    try {
+      if (EMBEDDED_SONG) { try { setSong(EMBEDDED_NAME, embeddedBlob()); } catch (_) {} }
+      else {
+        const rec = await idbGet('song');
+        if (rec && rec.blob) setSong(rec.name, rec.blob);
+        else await loadDefaultSong();
+      }
+    } finally { songReadyResolve(); }
     audio.volume = CFG.vol;
     if (CFG.cut === 'auto') loadSegmenter();   // warm up in the background while the fake system checks run
   })();
